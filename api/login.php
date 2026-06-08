@@ -1,4 +1,16 @@
 <?php
+// 1. Berikan izin akses ke semua client (termasuk Flutter Web Anda)
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+
+// 2. Handle 'Preflight Request' (Sangat penting untuk Flutter Web!)
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+
 // 1. Hubungkan koneksi database dan file model Akun
 require_once "../config/database.php";
 require_once "../models/Akun.php";
@@ -28,7 +40,7 @@ if ($user != null) {
     
     // Verifikasi password (menggunakan password_verify jika di-hash)
     // Jika password di database berupa teks mentah, ganti dengan: if ($data->password === $user['password'])
-    if (password_verify($data->password, $user['password'])) {
+    if ($data->password === $user['password']) {
         
         // LOGIN SUKSES
         http_response_code(200);
