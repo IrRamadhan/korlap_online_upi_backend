@@ -25,14 +25,14 @@ if (!is_dir($target_dir)) {
     mkdir($target_dir, 0777, true);
 }
 
-$doc_SK_name  = null;
+$doc_SIK_name  = null;
 $doc_SPM_name = null;
 
-// Proses file doc_SK
-if (!empty($_FILES['doc_SK']['name'])) {
-    $ext_SK = pathinfo($_FILES['doc_SK']['name'], PATHINFO_EXTENSION);
-    $doc_SK_name = "SK_" . time() . "_" . uniqid() . "." . $ext_SK;
-    move_uploaded_file($_FILES['doc_SK']['tmp_name'], $target_dir . $doc_SK_name);
+// Proses file doc_SIK
+if (!empty($_FILES['doc_SIK']['name'])) {
+    $ext_SIK = pathinfo($_FILES['doc_SIK']['name'], PATHINFO_EXTENSION);
+    $doc_SIK_name = "SIK_" . time() . "_" . uniqid() . "." . $ext_SIK;
+    move_uploaded_file($_FILES['doc_SIK']['tmp_name'], $target_dir . $doc_SIK_name);
 }
 
 // Proses file doc_SPM
@@ -50,7 +50,7 @@ $dataInput = [
     'waktu_mulai_peminjaman' => $_POST['waktu_mulai_peminjaman'],
     'waktu_akhir_peminjaman' => $_POST['waktu_akhir_peminjaman'],
     'keperluan'              => isset($_POST['keperluan']) ? $_POST['keperluan'] : null,
-    'doc_SK'                 => $doc_SK_name,
+    'doc_SIK'                 => $doc_SIK_name,
     'doc_SPM'                => $doc_SPM_name
 ];
 

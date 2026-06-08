@@ -25,4 +25,38 @@ class Akun {
         
         return null;
     }
+    // Tambahkan fungsi ini di dalam class Akun Anda
+    public function registrasiAkun($data) {
+        // 1. Validasi: Cek apakah nomor_induk sudah digunakan atau belum
+        $cek_query = "SELECT id FROM " . $this->table_name . " WHERE nomor_induk = ? LIMIT 1";
+        $cek_stmt = mysqli_prepare($this->db, $cek_query);
+        mysqli_stmt_bind_param($cek_stmt, "s", $data['nomor_induk']);
+        mysqli_stmt_execute($cek_stmt);
+        mysqli_stmt_store_result($cek_stmt);
+        
+        // Jika nomor_induk sudah ada di database, batalkan registrasi
+        if (mysqli_stmt_num_rows($cek_stmt) > 0) {
+            return "exists"; 
+        }
+
+        // 2. Jika nomor_induk aman, lakukan insert data akun baru
+        $query = "INSERT INTO " . $this->table_name . " (nomor_induk, password, nama, role, instansi) VALUES (?, ?, ?, ?, ?)";
+        $stmt = mysqli_prepare($this->db, $query);
+        
+        mysqli_stmt_bind_param(
+            $stmt, 
+            "sssss", 
+            $data['nomor_induk'], 
+            $data['password'], 
+            $data['nama'], 
+            $data['role'], 
+            $data['instansi']
+        );
+
+        if (mysqli_stmt_execute($stmt)) {
+            return "success";
+        }
+
+        return "failed";
+    }
 }
