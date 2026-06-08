@@ -1,8 +1,9 @@
 <?php
-// Hubungkan ke database.php
+// Hubungkan koneksi database dan model
 require_once "../config/database.php";
+require_once "../models/Peminjaman.php";
 
-// 1. Validasi Input Wajib (Pastikan parameter teks dikirim oleh Flutter)
+// Ingat: Karena Flutter mengirim file, kita gunakan $_POST dan $_FILES (bukan php://input)
 if (
     empty($_POST['id_ruangan']) || 
     empty($_POST['id_akun']) || 
@@ -13,81 +14,59 @@ if (
     http_response_code(400);
     echo json_encode([
         "status" => "error",
-        "message" => "Semua data kuisioner peminjaman wajib diisi."
+        "message" => "Data peminjaman tidak lengkap."
     ]);
     exit();
 }
 
-// Tangkap data teks dari $_POST
-$id_ruangan             = $_POST['id_ruangan'];
-$id_akun                = $_POST['id_akun'];
-$tanggal_peminjaman     = $_POST['tanggal_peminjaman'];     // Format dari Flutter: YYYY-MM-DD
-$waktu_mulai_peminjaman = $_POST['waktu_mulai_peminjaman']; // Format dari Flutter: HH:MM:SS
-$waktu_akhir_peminjaman = $_POST['waktu_akhir_peminjaman']; // Format dari Flutter: HH:MM:SS
-$keperluan              = isset($_POST['keperluan']) ? $_POST['keperluan'] : null;
+// 1. Proses Upload File Dokumen (jika ada)
+$target_dir = "../uploads/";
+if (!is_dir($target_dir)) {
+    mkdir($target_dir, 0777, true);
+}
 
-// Catatan Kolom Status Pengajuan:
-// Di screenshot DB Anda, status berbentuk enum('ditolak', 'diterima'). 
-// Agar pengajuan baru berstatus netral saat pertama dikirim, Anda disarankan menambahkan opsi 'diproses' pada enum tb_peminjaman di phpMyAdmin Anda.
-// Untuk sementara, kita isi default awal dengan status 'diproses'.
-$status_pengajuan       = "diproses"; 
-
-// Siapkan nama file sebagai null secara default jika user tidak upload
 $doc_SK_name  = null;
 $doc_SPM_name = null;
 
-// 2. Setup Folder Penyimpanan File Upload
-$target_dir = "../uploads/";
-if (!is_dir($target_dir)) {
-    mkdir($target_dir, 0777, true); // Buat folder 'uploads' otomatis jika belum ada
-}
-
-// 3. Proses Upload File doc_SK (Jika ada file yang dikirim)
+// Proses file doc_SK
 if (!empty($_FILES['doc_SK']['name'])) {
     $ext_SK = pathinfo($_FILES['doc_SK']['name'], PATHINFO_EXTENSION);
-    // Buat nama file unik agar tidak saling menimpa (Contoh: SK_1717800000_64a1b.pdf)
     $doc_SK_name = "SK_" . time() . "_" . uniqid() . "." . $ext_SK;
-    $target_file_SK = $target_dir . $doc_SK_name;
-    
-    move_uploaded_file($_FILES['doc_SK']['tmp_name'], $target_file_SK);
+    move_uploaded_file($_FILES['doc_SK']['tmp_name'], $target_dir . $doc_SK_name);
 }
 
-// 4. Proses Upload File doc_SPM (Jika ada file yang dikirim)
+// Proses file doc_SPM
 if (!empty($_FILES['doc_SPM']['name'])) {
     $ext_SPM = pathinfo($_FILES['doc_SPM']['name'], PATHINFO_EXTENSION);
     $doc_SPM_name = "SPM_" . time() . "_" . uniqid() . "." . $ext_SPM;
-    $target_file_SPM = $target_dir . $doc_doc_SPM_name;
-    
-    move_uploaded_file($_FILES['doc_SPM']['tmp_name'], $target_file_SPM);
+    move_uploaded_file($_FILES['doc_SPM']['tmp_name'], $target_dir . $doc_SPM_name);
 }
 
-// 5. Query INSERT ke tb_peminjaman (Menggunakan Prepared Statements)
-$query = "INSERT INTO tb_peminjaman (id_ruangan, id_akun, tanggal_peminjaman, waktu_mulai_peminjaman, waktu_akhir_peminjaman, keperluan, status_pengajuan, doc_SK, doc_SPM) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+// 2. Bungkus semua data ke dalam satu array untuk dikirim ke Model
+$dataInput = [
+    'id_ruangan'             => intval($_POST['id_ruangan']),
+    'id_akun'                => intval($_POST['id_akun']),
+    'tanggal_peminjaman'     => $_POST['tanggal_peminjaman'],
+    'waktu_mulai_peminjaman' => $_POST['waktu_mulai_peminjaman'],
+    'waktu_akhir_peminjaman' => $_POST['waktu_akhir_peminjaman'],
+    'keperluan'              => isset($_POST['keperluan']) ? $_POST['keperluan'] : null,
+    'doc_SK'                 => $doc_SK_name,
+    'doc_SPM'                => $doc_SPM_name
+];
 
-$stmt = mysqli_prepare($connect, $query);
-// "iisssssss" berarti: integer, integer, string, string, dst... sesuai urutan tanda tanya
-mysqli_stmt_bind_param($stmt, "iisssssss", $id_ruangan, $id_akun, $tanggal_peminjaman, $waktu_mulai_peminjaman, $waktu_akhir_peminjaman, $keperluan, $status_pengajuan, $doc_SK_name, $doc_SPM_name);
+// 3. Panggil Model Peminjaman untuk eksekusi ke database
+$peminjamanModel = new Peminjaman($connect);
 
-if (mysqli_stmt_execute($stmt)) {
-    
-    // 🌟 LOGIKA TAMBAHAN OTOMATIS: 
-    // Mengubah status ruangan di `tb_ruangan` menjadi 'diajukan'.
-    // Dengan begitu, user lain akan melihat status ruangan tersebut sudah ada yang mengajukan.
-    $update_ruangan_query = "UPDATE tb_ruangan SET status = 'diajukan' WHERE id = ?";
-    $stmt_ruangan = mysqli_prepare($connect, $update_ruangan_query);
-    mysqli_stmt_bind_param($stmt_ruangan, "i", $id_ruangan);
-    mysqli_stmt_execute($stmt_ruangan);
-
-    // Kirim respon sukses ke Flutter
+if ($peminjamanModel->buatPengajuan($dataInput)) {
     http_response_code(201);
     echo json_encode([
         "status" => "success",
-        "message" => "Pengajuan peminjaman ruangan berhasil dikirim."
+        "message" => "Pengajuan peminjaman berhasil diproses."
     ]);
 } else {
     http_response_code(500);
     echo json_encode([
         "status" => "error",
-        "message" => "Gagal menyimpan pengajuan ke database: " . mysqli_error($connect)
+        "message" => "Gagal menyimpan data pengajuan ke database."
     ]);
 }
