@@ -3,7 +3,7 @@
 require_once "../config/database.php";
 
 // Query untuk mengambil semua data ruangan dari tabel tb_ruangan
-$query = "SELECT id, nama_ruangan, gedung, lantai, jenis_ruangan, kapasitas, status, keterangan FROM tb_ruangan ORDER BY gedung ASC";
+$query = "SELECT id, nama_ruangan, gedung, lantai, jenis_ruangan, status FROM tb_ruangan ORDER BY gedung ASC";
 $result = mysqli_query($connect, $query);
 
 if ($result) {
